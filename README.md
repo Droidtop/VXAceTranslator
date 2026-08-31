@@ -28,6 +28,27 @@ Optional Arguments:
 - -t TARGET_FILENAME: Specifies a target filename to decompile/compile specific files. Only files with the given target filename included in their base name will be processed.
 - --force-decrypt: Forces the translator to decrypt the game and extract raw data files, even if the game is already decrypted.
 - --switch-indexless: Enables indexing mode (Explained below).
+- --mod MOD_DIRECTORY: Overlays a mod after the base translation. Repeat the option to create an ordered mod stack; later mods win conflicts.
+- --dry-run: Validates the selected translation and mods without writing game data.
+
+## Mods
+
+Mods use the same editable files produced by VXAceTranslator. A mod may contain those files directly or place them in a `Translated Files` directory. This supports script packs such as Cheese, including `index+offset - ScriptName.rb` insertions.
+
+Apply a translation with two ordered mods:
+
+```VXAceTranslator.exe -c "path/to/game" -i "path/to/translation" --mod "path/to/cheese" --mod "path/to/compatibility-fixes"```
+
+If multiple layers contain the same relative file, the later layer replaces it and the conflict is printed before compilation. Mods can optionally include a `mod.json` manifest:
+
+```json
+{
+  "name": "Cheese",
+  "version": "6.8",
+  "description": "Quality-of-life scripts",
+  "translation_root": "Translated Files"
+}
+```
 
 > **_NOTE:_** It is crucial to consistently enclose paths within double quotes when entering them in a terminal, as not doing so can lead to misleading errors if the path contains any spaces.
 

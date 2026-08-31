@@ -2,6 +2,7 @@ require_relative 'Modules/RVData2Decompiler'
 require_relative 'Modules/RVData2Compiler'
 require_relative 'Modules/Utils'
 require_relative 'Modules/RPG'
+require_relative 'Modules/ModStack'
 require 'optparse'
 require 'zlib'
 
@@ -9,7 +10,7 @@ $test = false
 $stdout.sync = true
 
 USAGE = "#{RED_COLOR}Decompiler Usage: RPGMakerVXAceTranslator.rb -d GAME_DIR -o OUTPUT_DIR [Optional]
-Compiler Usage: RPGMakerVXAceTranslator.rb -c GAME_DIR -i INPUT_DIR [Optional] -o OUTPUT_DIR [Optional]#{RESET_COLOR}"
+Compiler Usage: RPGMakerVXAceTranslator.rb -c GAME_DIR -i INPUT_DIR [--mod MOD_DIRECTORY ...] [Optional] -o OUTPUT_DIR [Optional]#{RESET_COLOR}"
 
 options = {}
 options[:target_basename] = ''
@@ -17,6 +18,8 @@ options[:input] = ''
 options[:output] = ''
 options[:indexless] = true
 options[:force_decrypt] = false
+options[:mods] = []
+options[:dry_run] = false
 
 while (arg = ARGV.shift)
 
@@ -35,6 +38,10 @@ while (arg = ARGV.shift)
     options[:indexless] = false
   when '--force-decrypt'
     options[:force_decrypt] = true
+  when '--mod'
+    options[:mods] << ARGV.shift
+  when '--dry-run'
+    options[:dry_run] = true
   when '-h', '--help'
     print USAGE
     $stdout.flush
@@ -68,13 +75,33 @@ if not options[:decompile].nil?
 
 
 elsif not options[:compile].nil?
-  c = RVData2Compiler.new
-  c.compile(options[:compile],
-            input_path=options[:input],
-            output_path=options[:output],
-            target_basename=options[:target_basename],
-            indexless=options[:indexless],
-            force_decrypt=options[:force_decrypt])
+  if options[:mods].empty?
+    c = RVData2Compiler.new
+    c.compile(options[:compile],
+              input_path=options[:input],
+              output_path=options[:output],
+              target_basename=options[:target_basename],
+              indexless=options[:indexless],
+              force_decrypt=options[:force_decrypt]) unless options[:dry_run]
+  else
+    raise ArgumentError, '--mod requires an explicit -i/--input translation directory' if options[:input].empty?
+
+    stack = ModStack.new(options[:input], options[:mods])
+    stack.with_staging_directory do |staging_directory|
+      stack.conflicts.each do |conflict|
+        puts "Mod override: #{conflict.relative_path} (#{conflict.previous_source} -> #{conflict.replacement_source})"
+      end
+      unless options[:dry_run]
+        c = RVData2Compiler.new
+        c.compile(options[:compile],
+                  input_path=staging_directory,
+                  output_path=options[:output],
+                  target_basename=options[:target_basename],
+                  indexless=options[:indexless],
+                  force_decrypt=options[:force_decrypt])
+      end
+    end
+  end
 
 
 end
