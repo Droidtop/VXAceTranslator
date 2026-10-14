@@ -216,6 +216,8 @@ def deserialize_parameters(parameters)
 
 end
 
+require 'open3'
+
 def decrypt_game(game_path, forced=false, remove_ex=true)
   game_data_path = join(game_path, 'Data')
 
@@ -229,13 +231,28 @@ def decrypt_game(game_path, forced=false, remove_ex=true)
     end
 
     print "#{BLUE_COLOR}Decrypting Game...#{RESET_COLOR}"
-    decrypter_path =  join('Resources', 'Tools', 'RPGMakerDecrypter-cli.exe')
-
-    if Dir.exist?(game_data_path)
-      FileUtils.rm_r(game_data_path)
+    portable_decrypter = ENV['VXACE_DECRYPTER'] || join('Resources', 'Tools', Gem.win_platform? ? 'rpgmad.exe' : 'rpgmad')
+    legacy_decrypter = join('Resources', 'Tools', 'RPGMakerDecrypter-cli.exe')
+    if File.exist?(portable_decrypter)
+      command = [portable_decrypter, 'decrypt', rgss3a_path]
+    elsif Gem.win_platform? && File.exist?(legacy_decrypter)
+      command = [legacy_decrypter, rgss3a_path, '-w']
+    else
+      raise "No RGSS archive extractor is available. Expected #{portable_decrypter}."
     end
 
-    system("\"#{decrypter_path}\" \"#{rgss3a_path}\" -w")
+    backup_path = nil
+    if Dir.exist?(game_data_path)
+      backup_path = "#{game_data_path}.vxace-backup-#{Time.now.to_i}"
+      FileUtils.mv(game_data_path, backup_path)
+    end
+
+    _stdout, stderr, status = Open3.capture3(*command)
+    unless status.success? && Dir.exist?(game_data_path) && !Dir.empty?(game_data_path)
+      FileUtils.rm_rf(game_data_path) if Dir.exist?(game_data_path)
+      FileUtils.mv(backup_path, game_data_path) if backup_path && Dir.exist?(backup_path)
+      raise "Game decryption failed: #{stderr.strip}"
+    end
     File.rename(rgss3a_path, rgss3a_path + '.old')
 
     clear_line

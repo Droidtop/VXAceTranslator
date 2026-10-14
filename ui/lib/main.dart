@@ -121,8 +121,7 @@ class _PatcherScreenState extends State<PatcherScreen> {
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: _mods.length,
-                            onReorder: (oldIndex, newIndex) => setState(() {
-                              if (newIndex > oldIndex) newIndex--;
+                            onReorderItem: (oldIndex, newIndex) => setState(() {
                               _mods.insert(newIndex, _mods.removeAt(oldIndex));
                             }),
                             itemBuilder: (context, index) => ListTile(
